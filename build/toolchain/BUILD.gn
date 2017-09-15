@@ -25,7 +25,11 @@ toolchain("gcc") {
 
   tool("alink") {
     rspfile = "{{output}}.rsp"
-    command = "rm -f {{output}} && ar rcs {{output}} @$rspfile"
+    if (current_os == "linux") {
+      command = "rm -f {{output}} && ar rcs {{output}} @$rspfile"
+    } else if (current_os == "mac") {
+      command = "rm -f {{output}} && libtool -o {{output}} -filelist $rspfile"
+    }
     description = "AR {{target_output_name}}{{output_extension}}"
     rspfile_content = "{{inputs}}"
     outputs = [
@@ -36,11 +40,16 @@ toolchain("gcc") {
   }
 
   tool("solink") {
-    soname = "{{target_output_name}}{{output_extension}}"  # e.g. "libfoo.so".
+    soname = "{{target_out_dir}}/{{target_output_name}}{{output_extension}}"  # e.g. "libfoo.so".
     rspfile = soname + ".rsp"
 
-    command = "g++ -shared {{ldflags}} -o $soname -Wl,-soname=$soname @$rspfile"
-    rspfile_content = "-Wl,--whole-archive {{inputs}} {{solibs}} -Wl,--no-whole-archive {{libs}}"
+    if (current_os == "linux") {
+      command = "g++ -shared {{ldflags}} -o $soname -Wl,-soname=$soname @$rspfile"
+      rspfile_content = "-Wl,--whole-archive {{inputs}} {{solibs}} -Wl,--no-whole-archive {{libs}}"
+    } else if (current_os == "mac") {
+      command = "g++ -shared {{ldflags}} -o $soname -Wl,-install_name,$soname -Wl,-filelist,\"$rspfile\" {{libs}} {{solibs}}"
+      rspfile_content = "{{inputs_newline}}"
+    }
 
     description = "SOLINK $soname"
 
@@ -60,9 +69,14 @@ toolchain("gcc") {
   tool("link") {
     outfile = "{{target_output_name}}{{output_extension}}"
     rspfile = "$outfile.rsp"
-    command = "g++ {{ldflags}} -o $outfile -Wl,--start-group @$rspfile {{solibs}} -Wl,--end-group {{libs}}"
+    if (current_os == "linux") {
+      command = "g++ {{ldflags}} -o $outfile -Wl,--start-group @$rspfile {{solibs}} -Wl,--end-group {{libs}}"
+      rspfile_content = "{{inputs}}"
+    } else if (current_os == "mac") {
+      command = "g++ {{ldflags}} -o $outfile -Wl,-filelist,\"$rspfile\" {{solibs}} {{libs}}"
+      rspfile_content = "{{inputs_newline}}"
+    }
     description = "LINK $outfile"
-    rspfile_content = "{{inputs}}"
     outputs = [
       outfile,
     ]
