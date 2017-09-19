@@ -40,15 +40,17 @@ toolchain("gcc") {
   }
 
   tool("solink") {
-    soname = "{{target_out_dir}}/{{target_output_name}}{{output_extension}}"  # e.g. "libfoo.so".
+    soname = "{{target_output_name}}{{output_extension}}"  # e.g. "libfoo.so".
     rspfile = soname + ".rsp"
 
     if (current_os == "linux") {
       command = "g++ -shared {{ldflags}} -o $soname -Wl,-soname=$soname @$rspfile"
       rspfile_content = "-Wl,--whole-archive {{inputs}} {{solibs}} -Wl,--no-whole-archive {{libs}}"
+      default_output_extension = ".so"
     } else if (current_os == "mac") {
       command = "g++ -shared {{ldflags}} -o $soname -Wl,-install_name,$soname -Wl,-filelist,\"$rspfile\" {{libs}} {{solibs}}"
       rspfile_content = "{{inputs_newline}}"
+      default_output_extension = ".dylib"
     }
 
     description = "SOLINK $soname"
@@ -56,7 +58,7 @@ toolchain("gcc") {
     # Use this for {{output_extension}} expansions unless a target manually
     # overrides it (in which case {{output_extension}} will be what the target
     # specifies).
-    default_output_extension = ".so"
+    # default_output_extension = ".so"
 
     outputs = [
       soname,
